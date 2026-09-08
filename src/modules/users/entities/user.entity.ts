@@ -21,6 +21,9 @@ export class User extends BaseEntity {
   @Column({ type: 'varchar', length: 30, nullable: true })
   phone: string | null;
 
+  @Column({ type: 'varchar', length: 7, default: '#0B6E4F' })
+  avatarColor: string;
+
   @Column({ type: 'boolean', default: true })
   isActive: boolean;
 

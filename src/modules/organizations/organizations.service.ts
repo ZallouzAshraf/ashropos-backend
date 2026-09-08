@@ -1,8 +1,7 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { roleHasPermission } from '../../common/constants/role-permissions';
-import { Permission } from '../../common/enums/permission.enum';
+import { Role } from '../../common/enums/role.enum';
 import { AuthUser } from '../../common/types/auth-user';
 import { OrganizationMember } from './entities/organization-member.entity';
 import { Organization } from './entities/organization.entity';
@@ -28,8 +27,8 @@ export class OrganizationsService {
   }
 
   async updateCurrent(user: AuthUser, dto: UpdateOrganizationDto) {
-    if (!roleHasPermission(user.role, Permission.ORG_MANAGE)) {
-      throw new ForbiddenException('Insufficient permissions');
+    if (user.role !== Role.OWNER) {
+      throw new ForbiddenException('Only the owner can update the organization');
     }
     const org = await this.getCurrent(user);
     if (dto.name) {

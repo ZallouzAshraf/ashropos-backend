@@ -91,7 +91,7 @@ export class AuthService {
       await manager.save(store);
 
       const trialEnd = new Date();
-      trialEnd.setDate(trialEnd.getDate() + 14);
+      trialEnd.setDate(trialEnd.getDate() + 30);
       const subscription = manager.create(Subscription, {
         organizationId: organization.id,
         plan: SubscriptionPlan.FREE,
@@ -326,6 +326,7 @@ export class AuthService {
       firstName: user.firstName,
       lastName: user.lastName,
       phone: user.phone,
+      avatarColor: user.avatarColor,
     };
   }
 

@@ -46,10 +46,10 @@ export class EmployeesController {
 
   @Delete(':id')
   @RequirePermissions(Permission.EMPLOYEES_MANAGE)
-  deactivate(
+  remove(
     @CurrentUser() user: AuthUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.employeesService.deactivate(user, id);
+    return this.employeesService.remove(user, id);
   }
 }

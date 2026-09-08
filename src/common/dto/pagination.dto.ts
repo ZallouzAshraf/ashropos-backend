@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, Max, Min } from 'class-validator';
+import { IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
 
 export class PaginationQueryDto {
   @ApiPropertyOptional({ default: 1 })
@@ -17,6 +17,12 @@ export class PaginationQueryDto {
   @Min(1)
   @Max(100)
   limit = 20;
+}
+
+export class StorePaginationQueryDto extends PaginationQueryDto {
+  @ApiProperty()
+  @IsUUID()
+  storeId: string;
 }
 
 export class PaginatedMetaDto {

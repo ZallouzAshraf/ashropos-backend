@@ -14,6 +14,7 @@ import { AuditService } from '../audit/audit.service';
 import { OrganizationMember } from '../organizations/entities/organization-member.entity';
 import { StoreMember } from '../stores/entities/store-member.entity';
 import { Store } from '../stores/entities/store.entity';
+import { RefreshToken } from '../users/entities/refresh-token.entity';
 import { User } from '../users/entities/user.entity';
 import { InviteEmployeeDto, UpdateEmployeeDto } from './dto/employee.dto';
 
@@ -27,11 +28,29 @@ export class EmployeesService {
   ) {}
 
   async list(user: AuthUser) {
-    return this.membersRepo.find({
+    const members = await this.membersRepo.find({
       where: { organizationId: user.organizationId },
       relations: ['user'],
       order: { createdAt: 'ASC' },
     });
+    return members.map((member) => ({
+      id: member.id,
+      userId: member.userId,
+      role: member.role,
+      isActive: member.isActive,
+      invitedAt: member.invitedAt,
+      joinedAt: member.joinedAt,
+      user: member.user
+        ? {
+            id: member.user.id,
+            email: member.user.email,
+            firstName: member.user.firstName,
+            lastName: member.user.lastName,
+            phone: member.user.phone,
+            avatarColor: member.user.avatarColor,
+          }
+        : undefined,
+    }));
   }
 
   async invite(actor: AuthUser, dto: InviteEmployeeDto) {
@@ -120,6 +139,21 @@ export class EmployeesService {
     if (dto.role) {
       member.role = dto.role;
     }
+    if (dto.isActive !== undefined) {
+      if (actor.role !== Role.OWNER) {
+        throw new ForbiddenException('Only the owner can change account status');
+      }
+      if (member.userId === actor.id || member.role === Role.OWNER) {
+        throw new ForbiddenException('The owner account cannot be disabled');
+      }
+      member.isActive = dto.isActive;
+      if (!dto.isActive) {
+        await this.dataSource.getRepository(RefreshToken).update(
+          { userId: member.userId, organizationId: actor.organizationId },
+          { revokedAt: new Date() },
+        );
+      }
+    }
     await this.membersRepo.save(member);
 
     if (dto.storeIds) {
@@ -144,20 +178,39 @@ export class EmployeesService {
     return member;
   }
 
-  async deactivate(actor: AuthUser, memberId: string) {
+  async remove(actor: AuthUser, memberId: string) {
+    if (actor.role !== Role.OWNER) {
+      throw new ForbiddenException('Only the owner can remove a member');
+    }
     const member = await this.membersRepo.findOne({
       where: { id: memberId, organizationId: actor.organizationId },
     });
     if (!member) {
       throw new NotFoundException('Employee not found');
     }
-    if (member.role === Role.OWNER && actor.role !== Role.OWNER) {
-      throw new ForbiddenException('Cannot deactivate the owner');
+    if (member.userId === actor.id || member.role === Role.OWNER) {
+      throw new ForbiddenException('The owner cannot be removed');
     }
-    if (!canManageRole(actor.role, member.role)) {
-      throw new ForbiddenException('Cannot manage this employee');
-    }
-    member.isActive = false;
-    return this.membersRepo.save(member);
+    await this.dataSource.transaction(async (manager) => {
+      await manager.delete(StoreMember, {
+        organizationId: actor.organizationId,
+        userId: member.userId,
+      });
+      await manager.update(
+        RefreshToken,
+        { userId: member.userId, organizationId: actor.organizationId },
+        { revokedAt: new Date() },
+      );
+      await manager.delete(OrganizationMember, { id: member.id });
+    });
+    await this.audit.log({
+      action: 'employee.remove',
+      entityType: 'organization_member',
+      entityId: member.id,
+      organizationId: actor.organizationId,
+      userId: actor.id,
+      metadata: { removedUserId: member.userId },
+    });
+    return { success: true };
   }
 }

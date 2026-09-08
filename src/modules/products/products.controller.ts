@@ -9,10 +9,10 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
-import { PaginationQueryDto } from '../../common/dto/pagination.dto';
+import { StorePaginationQueryDto } from '../../common/dto/pagination.dto';
 import { Permission } from '../../common/enums/permission.enum';
 import { AuthUser } from '../../common/types/auth-user';
 import { CreateProductDto, UpdateProductDto } from './dto/product.dto';
@@ -26,13 +26,11 @@ export class ProductsController {
 
   @Get()
   @RequirePermissions(Permission.PRODUCTS_READ)
-  @ApiQuery({ name: 'storeId', required: true })
   list(
     @CurrentUser() user: AuthUser,
-    @Query('storeId', ParseUUIDPipe) storeId: string,
-    @Query() query: PaginationQueryDto,
+    @Query() query: StorePaginationQueryDto,
   ) {
-    return this.productsService.list(user, storeId, query);
+    return this.productsService.list(user, query.storeId, query);
   }
 
   @Get(':id')
